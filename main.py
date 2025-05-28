@@ -407,8 +407,14 @@ async def trello_users(ctx):
 
 @bot.event
 async def on_member_join(member: discord.Member):
-
     welcome_message = f"Welcome {member.mention} to the server"
+    member_role = member.guild.get_role(member_role_id)
+
+    if member_role:
+        try:
+            await member.add_roles(member_role)
+        except discord.Forbidden:
+            print(f"Failed to add role {member_role.name} to {member.name}")
     try:
         await member.send(welcome_message)
     except discord.Forbidden:
