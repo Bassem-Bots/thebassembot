@@ -1,11 +1,12 @@
+import datetime
 import os
 from unicodedata import name
-import dotenv
+
 import discord
-from discord.ext import commands
-from discord import Option
+import dotenv
 import requests
-import datetime
+from discord import Option
+from discord.ext import commands
 
 dotenv.load_dotenv()
 
@@ -13,7 +14,12 @@ TRELLO_KEY = os.getenv("TRELLO_KEY")
 TRELLO_TOKEN = os.getenv("TRELLO_TOKEN")
 BOARD_ID = os.getenv("TRELLO_BOARD_ID")
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-
+member_role_id =  1333535285782515793
+ROLE_MAP = {
+    1333535325712289874: "Programmer",
+    1333535401763278859: "Designer",
+    1333546466081374319: "Builder"
+}
 
 CHANNEL_TEAM_MAP = {
     # 1329534093603373156: "Programming",
@@ -97,6 +103,56 @@ async def card_name_autocomplete(ctx: discord.AutocompleteContext):
         card["name"] for card in cards if ctx.value.lower() in card["name"].lower()
     ][:25]
 
+@bot.slash_command(name="setup_roles", description="Set up roles for the server")
+async def setup_roles(ctx: discord.Message, channel: Option(discord.TextChannel, "Channel to set up roles")):
+    if channel:
+        async for message in channel.history(limit=None):
+            await message.delete()
+
+    embed = discord.Embed(
+        title="Role Setup",
+        description="Click the buttons below to get your roles.",
+        color=discord.Color.blue(),
+        timestamp=datetime.datetime.now(),
+    )
+    for role_id, role_name in ROLE_MAP.items():
+        embed.add_field(
+            name=role_name,
+            value=f"Click the button to get the **{role_name}** role.",
+            inline=False,
+        )
+    view = discord.ui.View(timeout=None)
+    for role_id, role_name in ROLE_MAP.items():
+        button = discord.ui.Button(
+            label=role_name, style=discord.ButtonStyle.primary, custom_id=str(role_id)
+        )
+
+        async def button_callback(interaction: discord.Interaction):
+            role = interaction.guild.get_role(int(interaction.data["custom_id"]))
+            if role:
+                if role in interaction.user.roles:
+                    await interaction.user.remove_roles(role)
+                    await interaction.response.send_message(
+                        f"Removed **{role.name}** role.", ephemeral=True
+                    )
+                else:
+                    await interaction.user.add_roles(role)
+                    await interaction.response.send_message(
+                        f"Added **{role.name}** role.", ephemeral=True
+                    )
+            else:
+                await interaction.response.send_message(
+                    "Role not found.", ephemeral=True
+                )
+
+        button.callback = button_callback
+        view.add_item(button)
+    await channel.send(embed=embed, view=view)
+    await ctx.respond(
+        "Made the role setup message",
+        ephemeral=True,
+    )
+    
 
 @bot.slash_command(name="cards", description="Show all Trello cards grouped by list")
 async def cards(ctx):
